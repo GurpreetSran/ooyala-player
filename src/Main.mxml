@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   xmlns:ooyala="com.ooyala.api.*">
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.core.FlexGlobals;
+			
+			[Bindable]
+			public var embedCode:String = 'FqcWJ4Mjpnzw0ZNH6aGE-CE6ZPKZReZp'; 
+			[Bindable]
+			public var adSetCode:String = 's2MzU6rIBpTe20SzgA_OahnRJMNZf_zJ';
+			[Bindable]
+			public var playerID:String = '';
+			
+			public var autoPlay:Boolean = false;
+			
+			public var keywords:String = ''; //inSkin keywords 
+			
+			public var params:Object = new Object(); 
+			
+			override protected function initializationComplete():void
+			{
+				super.initializationComplete();
+				
+				if(FlexGlobals.topLevelApplication.parameters.embedCode != undefined) {
+					embedCode = FlexGlobals.topLevelApplication.parameters.embedCode;
+				}
+				
+				if(FlexGlobals.topLevelApplication.parameters.adSetCode != undefined) {
+					adSetCode = FlexGlobals.topLevelApplication.parameters.adSetCode;
+				}
+				
+				if(FlexGlobals.topLevelApplication.parameters.keywords != undefined) {
+					keywords = FlexGlobals.topLevelApplication.parameters.keywords;
+				}
+				
+				if(FlexGlobals.topLevelApplication.parameters.autoplay != undefined) {
+					autoPlay = FlexGlobals.topLevelApplication.parameters.autoplay;
+				}
+				
+				player.load();
+				
+				ExternalInterface.addCallback("setQueryStringParameters", function(param:Object):void {
+					params['embedCode'] = param.embedCode;
+					params['adSetCode'] = param.adSetCode;
+					params['autoplay'] = param.autoplay;
+					keywords = param.keywords;
+					
+					player.queryStringParameters = params; 
+				})
+				
+				player.addEventListener("apiReady",function(event:Event):void {
+					main();
+				});	
+			}
+			
+			public function main():void {
+				
+				if(autoPlay == true) {
+					player.playMovie();
+				} 
+				
+				var jsStr:String = player.embedCode+'^'+player.title; 
+				keywords = removeNonNumericChars(keywords);
+				
+				//Add event listeners here for js
+				player.addEventListener("stateChanged", function(event:Event):void {
+					try {
+						ExternalInterface.call("receiveOoyalaEvent", FlexGlobals.topLevelApplication.parameters.id, event.type, player.state );
+					}
+					catch(e:ErrorEvent) {}  // just throwing this away as the function may or may not be there.
+				});
+				
+				player.addEventListener("playheadTimeChanged", function(event:Event):void {
+					try {
+						ExternalInterface.call("receiveOoyalaEvent", FlexGlobals.topLevelApplication.parameters.id, event.type, player.state );
+					}
+					catch(e:ErrorEvent) {}  
+				});
+				
+				player.addEventListener("playComplete", function(event:Event):void {
+					try {
+						ExternalInterface.call("receiveOoyalaEvent", FlexGlobals.topLevelApplication.parameters.id, event.type, player.state );
+					}
+					catch(e:ErrorEvent) {} 
+				});
+				
+				player.addEventListener("adStarted", function(event:Event):void {
+					try {
+						ExternalInterface.call("receiveOoyalaEvent", FlexGlobals.topLevelApplication.parameters.id, event.type, player.state );
+					}
+					catch(e:ErrorEvent) {}  
+				});
+				
+				player.addEventListener("adCompleted",
+					function(event:Event):void {
+						try {
+							ExternalInterface.call("receiveOoyalaEvent", FlexGlobals.topLevelApplication.parameters.id, event.type, player.state );
+						}
+						catch(e:ErrorEvent) {}  
+					});
+				
+				player.addEventListener("embedCodeChanged",
+					function(event:Event):void {
+						try {
+							
+							ExternalInterface.call("receiveOoyalaEvent", FlexGlobals.topLevelApplication.parameters.id, event.type, jsStr );
+						}
+						catch(e:ErrorEvent) {}  
+					});
+				
+				//Send play started event for tealium tracking on main
+				try {
+					ExternalInterface.call("receiveOoyalaEvent", FlexGlobals.topLevelApplication.parameters.id, 'PlayStarted', jsStr );
+					ExternalInterface.call("receiveOoyalaEvent", FlexGlobals.topLevelApplication.parameters.id, 'inSkinKeywords', keywords );
+				}
+				catch(e:ErrorEvent) {}  // just throwing this away as the function may or may not be there.
+				
+				
+				//Following events are for inskin implementation 
+				player.addEventListener("apiReady",
+					function(event:Event):void {
+						try {
+							
+							ExternalInterface.call("receiveOoyalaEvent", FlexGlobals.topLevelApplication.parameters.id, event.type, '' );
+						}
+						catch(e:ErrorEvent) {}  
+					});
+				
+				player.addEventListener("currentItemEmbedCodeChanged",
+					function(event:Event):void {
+						try {
+							
+							ExternalInterface.call("receiveOoyalaEvent", FlexGlobals.topLevelApplication.parameters.id, event.type, jsStr + '^'
+								+ player.description + '^' + player.totalTime + '^' + player.lineup );
+						}
+						catch(e:ErrorEvent) {}  
+					});
+				
+				player.addEventListener("fullscreenChanged",
+					function(event:Event):void {
+						try {
+							
+							ExternalInterface.call("receiveOoyalaEvent", FlexGlobals.topLevelApplication.parameters.id, event.type, player.fullscreen );
+						}
+						catch(e:ErrorEvent) {}  
+					});
+				
+				player.addEventListener("totalTimeChanged",
+					function(event:Event):void {
+						try {
+							
+							ExternalInterface.call("receiveOoyalaEvent", FlexGlobals.topLevelApplication.parameters.id, event.type, player.totalTime );
+						}
+						catch(e:ErrorEvent) {}  
+					});
+				
+				//Methods for inskin implementation 
+				ExternalInterface.addCallback("inSkinPlay",Play);
+				ExternalInterface.addCallback("inSkinPause",Pause);
+				ExternalInterface.addCallback("getTotalTime",getTotalTime);
+				ExternalInterface.addCallback("getInSkinKeywords",getInSkinKeywords);
+			}
+			
+			private function Play():void
+			{
+				player.playMovie();
+			}
+			
+			private function Pause():void
+			{
+				player.pauseMovie();	
+			}
+			
+			private function getTotalTime():Number
+			{
+				return player.totalTime;
+			}
+			
+			private function getInSkinKeywords():String
+			{
+			    return keywords;
+			}
+			
+			
+			private function removeNonNumericChars($str:String):String {
+				$str = $str.toLowerCase();
+				$str = replaceAll($str, " ", "-")
+				var newStr:String = "";
+				for (var i:int = 0; i<$str.length; i++) {
+					var currentCharCode:Number = $str.charCodeAt(i);
+					if ((currentCharCode >= 48) && (currentCharCode <= 57) || (currentCharCode >= 97) && (currentCharCode <= 122) || (currentCharCode == 45) || (currentCharCode == 44)) {
+						newStr += $str.charAt(i);
+					}
+				}
+				return newStr;
+			}
+			
+			private function replaceAll(str:String, fnd:String, rpl:String):String{
+				return str.split(fnd).join(rpl);
+			}
+
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations> 	
+		<fx:Object
+			id = "defaultPlayerSettings"
+			allowFullScreen = "true"
+			autoplay = "false"
+			embedCode = "{embedCode}"
+			adSetCode = "{adSetCode}"
+			/>
+	</fx:Declarations>
+	
+	<ooyala:Player
+		id="player"
+		width="100%" height="100%" 
+		verticalCenter="0" horizontalCenter="0"
+		queryStringParameters="{defaultPlayerSettings}"		
+		/>
+</s:Application>
